@@ -234,7 +234,7 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
 
   int ret;
   char *buffer, error_buf[128];
-  uint32_t size, stack_size = 8096, heap_size = 8096;
+  uint32_t size, stack_size = 256 * 1024, heap_size = 256 * 1024;
 
   /* initialize the wasm runtime by default configurations */
   wasm_runtime_init();
@@ -334,51 +334,6 @@ wamr_can_handle_container (libcrun_container_t *container, libcrun_error_t *err)
 {
   return wasm_can_handle_container (container, err);
 }
-
-// This works only when the plugin folder is present in /usr/lib/wasmedge
-// static int
-// libwamr_configure_container (void *cookie arg_unused, enum handler_configure_phase phase,
-//                                  libcrun_context_t *context arg_unused, libcrun_container_t *container,
-//                                  const char *rootfs arg_unused, libcrun_error_t *err)
-// {
-//   int ret;
-//   runtime_spec_schema_config_schema *def = container->container_def;
-
-//   if (getenv ("WASMEDGE_PLUGIN_PATH") == NULL && getenv ("WASMEDGE_WASINN_PRELOAD") == NULL)
-//     return 0;
-
-//   if (phase != HANDLER_CONFIGURE_AFTER_MOUNTS)
-//     return 0;
-
-//   // Check if /usr/lib/wasmedge is already present in spec
-//   if (def->linux && def->mounts)
-//     {
-//       for (size_t i = 0; i < def->mounts_len; i++)
-//         {
-//           if (strcmp (def->mounts[i]->destination, "/usr/lib/wasmedge") == 0)
-//             return 0;
-//         }
-//     }
-
-//   // Mount the plugin folder to /usr/lib/wasmedge with specific options
-//   char *options[] = {
-//     "ro",
-//     "rprivate",
-//     "nosuid",
-//     "nodev",
-//     "rbind"
-//   };
-
-//   ret = libcrun_container_do_bind_mount (container, "/usr/lib/wasmedge ", "/usr/lib/wasmedge", options, 5, err);
-//   if (ret < 0)
-//     {
-//       if (crun_error_get_errno (err) != ENOENT)
-//         return ret;
-//       crun_error_release (err);
-//     }
-
-//   return 0;
-// }
 
 struct custom_handler_s handler_wamr = {
   .name = "wamr",
