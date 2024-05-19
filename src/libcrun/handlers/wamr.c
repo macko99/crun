@@ -234,7 +234,7 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
 
   int ret;
   char *buffer, error_buf[128];
-  uint32_t size, stack_size = 256 * 1024, heap_size = 256 * 1024;
+  uint32_t size, stack_size = 1024 * 1024, heap_size = 1024 * 1024;
 
   /* initialize the wasm runtime by default configurations */
   wasm_runtime_init();
