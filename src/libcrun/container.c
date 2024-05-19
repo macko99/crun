@@ -1415,6 +1415,8 @@ container_init (void *args, char *notify_socket, int sync_socket, libcrun_error_
       crun_error_release (err);
       return ret;
     }
+  clock_gettime(CLOCK_REALTIME, &ts);
+  log_message("[CONTINUUM]2 0104 container_init:container_init_setup:done id=", (char*)entrypoint_args->container->context->id, ts);
 
   entrypoint_args->sync_socket = -1;
 
@@ -1452,7 +1454,12 @@ container_init (void *args, char *notify_socket, int sync_socket, libcrun_error_
       close_and_reset (&entrypoint_args->context->fifo_exec_wait_fd);
     }
 
+      clock_gettime(CLOCK_REALTIME, &ts);
+  log_message("[CONTINUUM]2 0105 container_init:crun_set_output_handler:start id=", (char*)entrypoint_args->container->context->id, ts);
   crun_set_output_handler (log_write_to_stderr, NULL, false);
+
+    clock_gettime(CLOCK_REALTIME, &ts);
+  log_message("[CONTINUUM]2 0106 container_init:crun_set_output_handler:done id=", (char*)entrypoint_args->container->context->id, ts);
 
   if (def->process && def->process->no_new_privileges)
     {
@@ -1482,6 +1489,8 @@ container_init (void *args, char *notify_socket, int sync_socket, libcrun_error_
       close_and_reset (&entrypoint_args->seccomp_fd);
       close_and_reset (&entrypoint_args->seccomp_receiver_fd);
     }
+  clock_gettime(CLOCK_REALTIME, &ts);
+  log_message("[CONTINUUM]2 0107 container_init:process:done id=", (char*)entrypoint_args->container->context->id, ts);
 
   if (UNLIKELY (def->process == NULL))
     return crun_make_error (err, 0, "block `process` not found");
@@ -1504,16 +1513,25 @@ container_init (void *args, char *notify_socket, int sync_socket, libcrun_error_
       (void) lseek (1, 0, SEEK_END);
       (void) lseek (2, 0, SEEK_END);
     }
+  clock_gettime(CLOCK_REALTIME, &ts);
+  log_message("[CONTINUUM]2 0108 container_init:hooks:done id=", (char*)entrypoint_args->container->context->id, ts);
 
   if (entrypoint_args->custom_handler)
     {
+        clock_gettime(CLOCK_REALTIME, &ts);
+      log_message("[CONTINUUM]2 0109 container_init:custom_handler:start id=", (char*)entrypoint_args->container->context->id, ts);
       /* Files marked with O_CLOEXEC are closed at execv time, so make sure they are closed now.
          This is a best effort operation, because the seccomp filter is already in place and it could
          stop some syscalls used by mark_or_close_fds_ge_than.
       */
-      ret = mark_or_close_fds_ge_than (entrypoint_args->context->preserve_fds + 3, true, err);
-      if (UNLIKELY (ret < 0))
-        crun_error_release (err);
+      // ret = mark_or_close_fds_ge_than (entrypoint_args->context->preserve_fds + 3, true, err);
+      // if (UNLIKELY (ret < 0)){
+      // clock_gettime(CLOCK_REALTIME, &ts);
+      // log_message("[CONTINUUM]2 0111 container_init:mark_or_close_fds_ge_than:error id=", (char*)entrypoint_args->container->context->id, ts);
+      //   crun_error_release (err);
+      // }
+      clock_gettime(CLOCK_REALTIME, &ts);
+      log_message("[CONTINUUM]2 0110 container_init:mark_or_close_fds_ge_than:done id=", (char*)entrypoint_args->container->context->id, ts);
 
       prctl (PR_SET_NAME, entrypoint_args->custom_handler->vtable->name);
 
@@ -1537,12 +1555,22 @@ container_init (void *args, char *notify_socket, int sync_socket, libcrun_error_
       if (UNLIKELY (ret < 0))
         return ret;
 
+      clock_gettime(CLOCK_REALTIME, &ts);
+      log_message("[CONTINUUM]2 0101 container_init:run_func:start id=", (char*)entrypoint_args->container->context->id, ts);
+
       ret = entrypoint_args->custom_handler->vtable->run_func (entrypoint_args->custom_handler->cookie,
                                                                entrypoint_args->container,
                                                                exec_path,
                                                                def->process->args);
-      if (ret != 0)
+
+      clock_gettime(CLOCK_REALTIME, &ts);
+      log_message("[CONTINUUM]2 0102 container_init:run_func:done id=", (char*)entrypoint_args->container->context->id, ts);
+
+      if (ret != 0){
+        clock_gettime(CLOCK_REALTIME, &ts);
+        log_message("[CONTINUUM]2 0103 container_init:run_func:error id=", (char*)entrypoint_args->container->context->id, ts);
         return crun_make_error (err, ret, "exec container process failed with handler as `%s`", entrypoint_args->custom_handler->vtable->name);
+      }
 
       return ret;
     }
