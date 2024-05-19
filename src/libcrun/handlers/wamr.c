@@ -127,7 +127,7 @@ char *read_wasm_binary_to_buffer(const char *pathname, uint32_t *size) {
   log_message("[CONTINUUM]2 0008 read_wasm_binary_to_buffer:malloc:done id=", "a", ts);
 
     // Read the file into the buffer
-    if (fread(buffer, file_size, 1, file) != file_size) {
+    if (fread(buffer, 1, file_size, file) != file_size) {
         error (EXIT_FAILURE, 0, "Failed to read file");
         free(buffer);
         fclose(file);
@@ -135,9 +135,8 @@ char *read_wasm_binary_to_buffer(const char *pathname, uint32_t *size) {
     }
 
   clock_gettime(CLOCK_REALTIME, &ts);
-  //get size of buffer
-  sprintf(str, "%ld", sizeof(buffer));
-  log_message("[CONTINUUM]2 0009 read_wasm_binary_to_buffer:fread:done size2=", str, ts);
+  //get size of the full buffer
+  log_message("[CONTINUUM]2 0009 read_wasm_binary_to_buffer:fread:done =", "a", ts);
 
     // Close the file
     fclose(file);
@@ -247,7 +246,7 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
   buffer = read_wasm_binary_to_buffer(pathname, &size);
 
   clock_gettime(CLOCK_REALTIME, &ts);
-  log_message("[CONTINUUM]2 0014 libwamr_exec:read_wasm_binary_to_buffer:done id=", buffer, ts);
+  log_message("[CONTINUUM]2 0014 libwamr_exec:read_wasm_binary_to_buffer:done id=", "a", ts);
 
   /* add line below if we want to export native functions to WASM app */
   // wasm_runtime_register_natives(...);
