@@ -127,7 +127,7 @@ char *read_wasm_binary_to_buffer(const char *pathname, uint32_t *size) {
   log_message("[CONTINUUM]2 0008 read_wasm_binary_to_buffer:malloc:done id=", "a", ts);
 
     // Read the file into the buffer
-    if (fread(buffer, 1, file_size, file) != file_size) {
+    if (fread(buffer, file_size, 1, file) != file_size) {
         error (EXIT_FAILURE, 0, "Failed to read file");
         free(buffer);
         fclose(file);
