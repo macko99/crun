@@ -157,42 +157,28 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
   struct timespec ts;
   clock_gettime(CLOCK_REALTIME, &ts);
   log_message("[CONTINUUM]2 0011 libwamr_exec:start id=", "a", ts);
+
   // load symbols from the shared library libiwasm.so
   bool (*wasm_runtime_init) ();
-
-  // uint8_t (*read_wasm_binary_to_buffer) (const char *pathname, uint32_t *size);
-
+  RuntimeInitArgs init_args;
+  bool (*wasm_runtime_full_init)(RuntimeInitArgs *init_args);
   wasm_module_t module;
   wasm_module_t (*wasm_runtime_load) (uint8_t *buf, uint32_t size, char *error_buf, uint32_t error_buf_size);
-
   wasm_module_inst_t module_inst;
-  wasm_module_inst_t (*wasm_runtime_instantiate) (const wasm_module_t module,
-                         uint32_t default_stack_size,
-                         uint32_t host_managed_heap_size, 
-                         char *error_buf,
-                         uint32_t error_buf_size);
-
+  wasm_module_inst_t (*wasm_runtime_instantiate) (const wasm_module_t module, uint32_t default_stack_size, uint32_t host_managed_heap_size, char *error_buf, uint32_t error_buf_size);
   wasm_function_inst_t func;
   wasm_function_inst_t (*wasm_runtime_lookup_function) (wasm_module_inst_t const module_inst, const char *name);
-
   wasm_exec_env_t exec_env;
   wasm_exec_env_t (*wasm_runtime_create_exec_env) (wasm_module_inst_t module_inst, uint32_t stack_size);
-
   bool (*wasm_runtime_call_wasm) (wasm_exec_env_t exec_env, wasm_function_inst_t function, uint32_t argc, uint32_t argv[]);
-
   const char *(*wasm_runtime_get_exception)(wasm_module_inst_t module_inst);
-
   void (*wasm_runtime_destroy_exec_env) (wasm_exec_env_t exec_env);
-
   void (*wasm_runtime_deinstantiate) (wasm_module_inst_t module_inst);
-
   void (*wasm_runtime_unload) (wasm_module_t module);
-
   void (*wasm_runtime_destroy) ();
 
-
   wasm_runtime_init = dlsym (cookie, "wasm_runtime_init");
-  // read_wasm_binary_to_buffer = dlsym (cookie, "read_wasm_binary_to_buffer");
+  wasm_runtime_full_init = dlsym (cookie, "wasm_runtime_full_init");
   wasm_runtime_load = dlsym (cookie, "wasm_runtime_load");
   wasm_runtime_instantiate = dlsym (cookie, "wasm_runtime_instantiate");
   wasm_runtime_lookup_function = dlsym (cookie, "wasm_runtime_lookup_function");
@@ -206,8 +192,8 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
 
   if (wasm_runtime_init == NULL)
     error (EXIT_FAILURE, 0, "could not find wasm_runtime_init symbol in `libiwasm.so`");
-  // if(read_wasm_binary_to_buffer == NULL)
-  //   error (EXIT_FAILURE, 0, "could not find read_wasm_binary_to_buffer symbol in `libiwasm.so`");
+  if(wasm_runtime_full_init == NULL)
+    error (EXIT_FAILURE, 0, "could not find wasm_runtime_full_init symbol in `libiwasm.so`");
   if (wasm_runtime_load == NULL)
     error (EXIT_FAILURE, 0, "could not find wasm_runtime_load symbol in `libiwasm.so`");
   if (wasm_runtime_instantiate == NULL) 
@@ -232,12 +218,23 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
   clock_gettime(CLOCK_REALTIME, &ts);
   log_message("[CONTINUUM]2 0012 libwamr_exec:so:load:done id=", "a", ts);
 
+  static char global_heap_buf[512 * 1024];
   int ret;
   char *buffer, error_buf[128];
   uint32_t size, stack_size = 8096, heap_size = 8096;
 
+  memset(&init_args, 0, sizeof(RuntimeInitArgs));
   /* initialize the wasm runtime by default configurations */
-  wasm_runtime_init();
+  // wasm_runtime_init();
+  init_args.mem_alloc_type = Alloc_With_Pool;
+  init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
+  init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
+
+  /* initialize runtime environment */
+  if (!wasm_runtime_full_init(&init_args)) {
+    clock_gettime(CLOCK_REALTIME, &ts);
+    log_message("[CONTINUUM]2 0013 libwamr_exec:wasm_runtime_init:error id=", "error", ts);
+  }
 
   clock_gettime(CLOCK_REALTIME, &ts);
   log_message("[CONTINUUM]2 0013 libwamr_exec:wasm_runtime_init:done id=", "none", ts);
