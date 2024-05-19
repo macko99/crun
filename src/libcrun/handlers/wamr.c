@@ -218,7 +218,7 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
   clock_gettime(CLOCK_REALTIME, &ts);
   log_message("[CONTINUUM]2 0012 libwamr_exec:so:load:done id=", "a", ts);
 
-  static char global_heap_buf[512 * 1024];
+  static char global_heap_buf[256 * 1024];
   int ret;
   char *buffer, error_buf[128];
   uint32_t size, stack_size = 8096, heap_size = 8096;
@@ -243,7 +243,7 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
   buffer = read_wasm_binary_to_buffer(pathname, &size);
 
   clock_gettime(CLOCK_REALTIME, &ts);
-  log_message("[CONTINUUM]2 0014 libwamr_exec:read_wasm_binary_to_buffer:done id=", "a", ts);
+  log_message("[CONTINUUM]2 0014 libwamr_exec:read_wasm_binary_to_buffer:done id=", "none", ts);
 
   /* add line below if we want to export native functions to WASM app */
   // wasm_runtime_register_natives(...);
