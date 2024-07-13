@@ -309,10 +309,14 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
   // log_message("[CONTINUUM]2 0017 libwamr_exec:wasm_runtime_lookup_function:done id=", func, ts);
 
   /* creat an execution environment to execute the WASM functions */
-  // exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
+  exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
+  if (!exec_env) {
+    clock_gettime(CLOCK_REALTIME, &ts);
+    log_message("[CONTINUUM]2 0033 libwamr_exec:exec_env:error id=", error_buf, ts);
+  }
 
-  // clock_gettime(CLOCK_REALTIME, &ts);
-  // log_message("[CONTINUUM]2 0018 libwamr_exec:wasm_runtime_create_exec_env:done id=", "a", ts);
+  clock_gettime(CLOCK_REALTIME, &ts);
+  log_message("[CONTINUUM]2 0018 libwamr_exec:wasm_runtime_create_exec_env:done id=", "a", ts);
 
   // uint32_t num_args = 1, num_results = 1;
   // wasm_val_t results[1];

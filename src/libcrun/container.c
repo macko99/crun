@@ -635,6 +635,8 @@ initialize_security (runtime_spec_schema_config_schema_process *proc, libcrun_er
         return ret;
     }
 
+    //MKB1 could be outed
+
   ret = libcrun_initialize_selinux (err);
   if (UNLIKELY (ret < 0))
     return ret;

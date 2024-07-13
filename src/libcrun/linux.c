@@ -70,6 +70,7 @@
 #include <yajl/yajl_gen.h>
 
 #include "mount_flags.h"
+#include <time.h>
 
 #define YAJL_STR(x) ((const unsigned char *) (x))
 
@@ -2582,6 +2583,9 @@ make_parent_mount_private (const char *rootfs, libcrun_error_t *err)
 int
 libcrun_set_mounts (struct container_entrypoint_s *entrypoint_args, libcrun_container_t *container, const char *rootfs, set_mounts_cb_t cb, void *cb_data, libcrun_error_t *err)
 {
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  log_message("[CONTINUUM] 0001 libcrun_set_mounts:start id=", (char*)container->context->id, ts);
   runtime_spec_schema_config_schema *def = container->container_def;
   cleanup_free char *unified_cgroup_path = NULL;
   cleanup_close int rootfsfd_cleanup = -1;
@@ -2724,6 +2728,9 @@ libcrun_set_mounts (struct container_entrypoint_s *entrypoint_args, libcrun_cont
 
   get_private_data (container)->rootfsfd = -1;
 
+  clock_gettime(CLOCK_REALTIME, &ts);
+  log_message("[CONTINUUM] 0002 libcrun_set_mounts:done id=", (char*)container->context->id, ts);
+
   return 0;
 }
 
@@ -2787,6 +2794,9 @@ move_root (const char *rootfs, libcrun_error_t *err)
 int
 libcrun_do_pivot_root (libcrun_container_t *container, bool no_pivot, const char *rootfs, libcrun_error_t *err)
 {
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  log_message("[CONTINUUM] 0003 libcrun_do_pivot_root:start id=", (char*)container->context->id, ts);
   int ret;
   if (get_private_data (container)->unshare_flags & CLONE_NEWNS)
     {
@@ -2819,6 +2829,8 @@ libcrun_do_pivot_root (libcrun_container_t *container, bool no_pivot, const char
   if (UNLIKELY (ret < 0))
     return crun_make_error (err, errno, "chdir to `/`");
 
+  clock_gettime(CLOCK_REALTIME, &ts);
+  log_message("[CONTINUUM] 0004 libcrun_do_pivot_root:done id=", (char*)container->context->id, ts);
   return 0;
 }
 
@@ -3765,6 +3777,9 @@ static int
 join_namespaces (runtime_spec_schema_config_schema *def, int *namespaces_to_join, int n_namespaces_to_join,
                  int *namespaces_to_join_index, bool ignore_join_errors, libcrun_error_t *err)
 {
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  log_message("[CONTINUUM] 0005 join_namespaces:start id=", (char*)def->domainname, ts);
   int ret;
   int i;
 
@@ -3781,6 +3796,12 @@ join_namespaces (runtime_spec_schema_config_schema *def, int *namespaces_to_join
       value = libcrun_find_namespace (def->linux->namespaces[orig_index]->type);
       if (value == CLONE_NEWUSER)
         continue;
+
+      clock_gettime(CLOCK_REALTIME, &ts);
+      log_message("[CONTINUUM] 0005 join_namespaces:loop type=", (char*)def->linux->namespaces[orig_index]->type, ts);
+
+      // clock_gettime(CLOCK_REALTIME, &ts);
+      // log_message("[CONTINUUM] 0005 join_namespaces:loop value=", (char*)value, ts);
 
       if (value == CLONE_NEWNS)
         {
@@ -3806,6 +3827,8 @@ join_namespaces (runtime_spec_schema_config_schema *def, int *namespaces_to_join
             return crun_make_error (err, errno, "chdir(.)");
         }
     }
+  clock_gettime(CLOCK_REALTIME, &ts);
+  log_message("[CONTINUUM] 0006 join_namespaces:done id=", (char*)def->hostname, ts);
   return 0;
 }
 
@@ -4237,6 +4260,9 @@ prepare_and_send_mount_mounts (libcrun_container_t *container, pid_t pid, int sy
 static int
 prepare_and_send_dev_mounts (libcrun_container_t *container, int sync_socket_host, libcrun_error_t *err)
 {
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  log_message("[CONTINUUM] 0007 prepare_and_send_dev_mounts:start id=", (char*)container->context->id, ts);
   runtime_spec_schema_config_schema *def = container->container_def;
   cleanup_close_map struct libcrun_fd_map *dev_fds = NULL;
   bool has_userns = (get_private_data (container)->unshare_flags & CLONE_NEWUSER) ? true : false;
@@ -4338,6 +4364,8 @@ prepare_and_send_dev_mounts (libcrun_container_t *container, int sync_socket_hos
     }
 
   ret = send_mounts (sync_socket_host, dev_fds, how_many, def->linux->devices_len, err);
+  clock_gettime(CLOCK_REALTIME, &ts);
+  log_message("[CONTINUUM] 0008 prepare_and_send_dev_mounts:done id=", (char*)container->context->id, ts);
 restore_mountns:
   {
     int setns_ret;
