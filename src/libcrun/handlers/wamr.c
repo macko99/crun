@@ -234,6 +234,7 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
 
   clock_gettime(CLOCK_REALTIME, &ts);
   log_message("[CONTINUUM]2 0012 libwamr_exec:so:load:done id=", "a", ts);
+  printf("libwamr_exec:so:load:done");
 
   static char global_heap_buf[256 * 1024];
   int ret;
@@ -264,12 +265,14 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
 
   clock_gettime(CLOCK_REALTIME, &ts);
   log_message("[CONTINUUM]2 0013 libwamr_exec:wasm_runtime_init:done id=", "none", ts);
+  printf("libwamr_exec:wasm_runtime_init:done");
 
   /* read WASM file into a memory buffer */
   buffer = read_wasm_binary_to_buffer(pathname, &size);
 
   clock_gettime(CLOCK_REALTIME, &ts);
   log_message("[CONTINUUM]2 0014 libwamr_exec:read_wasm_binary_to_buffer:done id=", "none", ts);
+  printf("libwamr_exec:read_wasm_binary_to_buffer:done");
 
   /* add line below if we want to export native functions to WASM app */
   // wasm_runtime_register_natives(...);
@@ -284,6 +287,7 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
 
   clock_gettime(CLOCK_REALTIME, &ts);
   log_message("[CONTINUUM]2 0015 libwamr_exec:wasm_runtime_load:done id=", "none", ts);
+  printf("libwamr_exec:wasm_runtime_load:done");
 
   /* create an instance of the WASM module (WASM linear memory is ready) */
   module_inst = wasm_runtime_instantiate(module, stack_size, heap_size,
@@ -296,17 +300,19 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
 
   clock_gettime(CLOCK_REALTIME, &ts);
   log_message("[CONTINUUM]2 0016 libwamr_exec:wasm_runtime_instantiate:done id=", "none", ts);
+  printf("libwamr_exec:wasm_runtime_instantiate:done");
 
   /* lookup a WASM function by its name The function signature can NULL here */
-  // func = wasm_runtime_lookup_function(module_inst, "add");
+  func = wasm_runtime_lookup_function(module_inst, "_start");
 
-  // if (!func || func == NULL) {
-  //   clock_gettime(CLOCK_REALTIME, &ts);
-  //   log_message("[CONTINUUM]2 0027 libwamr_exec:wasm_runtime_lookup_function:error id=", "error", ts);
-  // }
+  if (!func || func == NULL) {
+    clock_gettime(CLOCK_REALTIME, &ts);
+    log_message("[CONTINUUM]2 0027 libwamr_exec:wasm_runtime_lookup_function:error id=", "error", ts);
+  }
 
-  // clock_gettime(CLOCK_REALTIME, &ts);
-  // log_message("[CONTINUUM]2 0017 libwamr_exec:wasm_runtime_lookup_function:done id=", func, ts);
+  clock_gettime(CLOCK_REALTIME, &ts);
+  log_message("[CONTINUUM]2 0017 libwamr_exec:wasm_runtime_lookup_function:done id=", func, ts);
+  printf("ibwamr_exec:wasm_runtime_lookup_function:done");
 
   /* creat an execution environment to execute the WASM functions */
   exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
@@ -317,6 +323,7 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
 
   clock_gettime(CLOCK_REALTIME, &ts);
   log_message("[CONTINUUM]2 0018 libwamr_exec:wasm_runtime_create_exec_env:done id=", "a", ts);
+  printf("libwamr_exec:wasm_runtime_create_exec_env:done");
 
   // uint32_t num_args = 1, num_results = 1;
   // wasm_val_t results[1];
@@ -328,18 +335,20 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
   // argv2[0] = 8;
 
   /* call the WASM function */
-  if (wasm_application_execute_main(module_inst, 0, NULL) ) {
-  // if (wasm_runtime_call_wasm(exec_env, func, 0, NULL) ) {
+  // if (wasm_application_execute_main(module_inst, 0, NULL) ) {
+  if (wasm_runtime_call_wasm(exec_env, func, 0, NULL) ) {
       /* the return value is stored in argv[0] */
-      result = wasm_runtime_get_wasi_exit_code(module_inst);
-      printf("fib function return: %d\n", result);
+      // result = wasm_runtime_get_wasi_exit_code(module_inst);
+      // printf("fib function return: %d\n", result);
       clock_gettime(CLOCK_REALTIME, &ts);
       log_message("[CONTINUUM]2 0019 libwamr_exec:wasm_runtime_call_wasm:done id=", result, ts);
+      printf("libwamr_exec:wasm_runtime_call_wasm:done");
   }
   else {
       /* exception is thrown if call fails */
       clock_gettime(CLOCK_REALTIME, &ts);
       log_message("[CONTINUUM]2 0019 libwamr_exec:wasm_runtime_call_wasm:error id=", wasm_runtime_get_exception(module_inst), ts);
+      printf("libwamr_exec:wasm_runtime_call_wasm:error");
   }
 
   wasm_runtime_destroy_exec_env(exec_env);
