@@ -637,9 +637,9 @@ initialize_security (runtime_spec_schema_config_schema_process *proc, libcrun_er
 
     //MKB1 could be outed
 
-  ret = libcrun_initialize_selinux (err);
-  if (UNLIKELY (ret < 0))
-    return ret;
+  // ret = libcrun_initialize_selinux (err);
+  // if (UNLIKELY (ret < 0))
+  //   return ret;
 
   ret = libcrun_init_caps (err);
   if (UNLIKELY (ret < 0))
@@ -1527,14 +1527,14 @@ container_init (void *args, char *notify_socket, int sync_socket, libcrun_error_
          stop some syscalls used by mark_or_close_fds_ge_than.
       */
      //MBK1: check if this is needed
-      ret = mark_or_close_fds_ge_than (entrypoint_args->context->preserve_fds + 3, true, err);
-      if (UNLIKELY (ret < 0)){
-      clock_gettime(CLOCK_REALTIME, &ts);
-      log_message("[CONTINUUM]2 0111 container_init:mark_or_close_fds_ge_than:error id=", (char*)entrypoint_args->container->context->id, ts);
-        crun_error_release (err);
-      }
-      clock_gettime(CLOCK_REALTIME, &ts);
-      log_message("[CONTINUUM]2 0110 container_init:mark_or_close_fds_ge_than:done id=", (char*)entrypoint_args->container->context->id, ts);
+      // ret = mark_or_close_fds_ge_than (entrypoint_args->context->preserve_fds + 3, true, err);
+      // if (UNLIKELY (ret < 0)){
+      //   clock_gettime(CLOCK_REALTIME, &ts);
+      //   log_message("[CONTINUUM]2 0111 container_init:mark_or_close_fds_ge_than:error id=", (char*)entrypoint_args->container->context->id, ts);
+      //   crun_error_release (err);
+      // }
+      // clock_gettime(CLOCK_REALTIME, &ts);
+      // log_message("[CONTINUUM]2 0110 container_init:mark_or_close_fds_ge_than:done id=", (char*)entrypoint_args->container->context->id, ts);
 
       prctl (PR_SET_NAME, entrypoint_args->custom_handler->vtable->name);
 

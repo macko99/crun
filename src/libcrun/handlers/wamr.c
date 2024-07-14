@@ -65,15 +65,6 @@ libwamr_load (void **cookie, libcrun_error_t *err)
   return 0;
 }
 
-int
-my_vprintf(const char *format, va_list ap)
-{
-    /* Print in blue */
-    char buf[200];
-    snprintf(buf, 200, format);
-    return vprintf(buf, ap);
-}
-
 static int
 libwamr_unload (void *cookie, libcrun_error_t *err)
 {
@@ -187,6 +178,7 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
   void (*wasm_runtime_destroy) ();
   uint32_t (*wasm_runtime_get_wasi_exit_code)(wasm_module_inst_t module_inst);
   bool (*wasm_application_execute_main)(wasm_module_inst_t module_inst, int32_t argc, char *argv[]);
+  void (*wasm_runtime_set_wasi_args) (wasm_module_t module, const char *dir_list[], uint32_t dir_count, const char *map_dir_list[], uint32_t map_dir_count, const char *env[], uint32_t env_count, char *argv[], int argc);
 
   wasm_runtime_init = dlsym (cookie, "wasm_runtime_init");
   wasm_runtime_full_init = dlsym (cookie, "wasm_runtime_full_init");
@@ -202,6 +194,7 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
   wasm_runtime_destroy = dlsym (cookie, "wasm_runtime_destroy");
   wasm_runtime_get_wasi_exit_code = dlsym (cookie, "wasm_runtime_get_wasi_exit_code");
   wasm_application_execute_main = dlsym (cookie, "wasm_application_execute_main");
+  wasm_runtime_set_wasi_args = dlsym (cookie, "wasm_runtime_set_wasi_args");
 
   if (wasm_runtime_init == NULL)
     error (EXIT_FAILURE, 0, "could not find wasm_runtime_init symbol in `libiwasm.so`");
@@ -231,10 +224,12 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
     error (EXIT_FAILURE, 0, "could not find wasm_runtime_get_wasi_exit_code symbol in `libiwasm.so`");
   if (wasm_application_execute_main == NULL)
     error (EXIT_FAILURE, 0, "could not find wasm_application_execute_main symbol in `libiwasm.so`");
+  if (wasm_runtime_set_wasi_args == NULL)
+    error (EXIT_FAILURE, 0, "could not find wasm_runtime_set_wasi_args symbol in `libiwasm.so`");
 
   clock_gettime(CLOCK_REALTIME, &ts);
   log_message("[CONTINUUM]2 0012 libwamr_exec:so:load:done id=", "a", ts);
-  printf("libwamr_exec:so:load:done");
+  // printf("libwamr_exec:so:load:done");
 
   static char global_heap_buf[256 * 1024];
   int ret;
@@ -265,14 +260,14 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
 
   clock_gettime(CLOCK_REALTIME, &ts);
   log_message("[CONTINUUM]2 0013 libwamr_exec:wasm_runtime_init:done id=", "none", ts);
-  printf("libwamr_exec:wasm_runtime_init:done");
+  // printf("libwamr_exec:wasm_runtime_init:done");
 
   /* read WASM file into a memory buffer */
   buffer = read_wasm_binary_to_buffer(pathname, &size);
 
   clock_gettime(CLOCK_REALTIME, &ts);
   log_message("[CONTINUUM]2 0014 libwamr_exec:read_wasm_binary_to_buffer:done id=", "none", ts);
-  printf("libwamr_exec:read_wasm_binary_to_buffer:done");
+  // printf("libwamr_exec:read_wasm_binary_to_buffer:done");
 
   /* add line below if we want to export native functions to WASM app */
   // wasm_runtime_register_natives(...);
@@ -287,7 +282,17 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
 
   clock_gettime(CLOCK_REALTIME, &ts);
   log_message("[CONTINUUM]2 0015 libwamr_exec:wasm_runtime_load:done id=", "none", ts);
-  printf("libwamr_exec:wasm_runtime_load:done");
+  // printf("libwamr_exec:wasm_runtime_load:done");
+
+  const char *dirs[2] = { "/", "." };
+
+  char **container_env = container->container_def->process->env;
+  size_t env_count = container->container_def->process->env_len;
+
+  wasm_runtime_set_wasi_args(module, dirs, 1, NULL, 0, container_env, env_count, NULL, 0);
+
+  log_message("[CONTINUUM]2 0028 libwamr_exec:wasm_runtime_set_wasi_args:done id=", "none", ts);
+  // printf("libwamr_exec:wasm_runtime_set_wasi_args:done");
 
   /* create an instance of the WASM module (WASM linear memory is ready) */
   module_inst = wasm_runtime_instantiate(module, stack_size, heap_size,
@@ -300,7 +305,7 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
 
   clock_gettime(CLOCK_REALTIME, &ts);
   log_message("[CONTINUUM]2 0016 libwamr_exec:wasm_runtime_instantiate:done id=", "none", ts);
-  printf("libwamr_exec:wasm_runtime_instantiate:done");
+  // printf("libwamr_exec:wasm_runtime_instantiate:done");
 
   /* lookup a WASM function by its name The function signature can NULL here */
   func = wasm_runtime_lookup_function(module_inst, "_start");
@@ -312,7 +317,7 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
 
   clock_gettime(CLOCK_REALTIME, &ts);
   log_message("[CONTINUUM]2 0017 libwamr_exec:wasm_runtime_lookup_function:done id=", func, ts);
-  printf("ibwamr_exec:wasm_runtime_lookup_function:done");
+  // printf("ibwamr_exec:wasm_runtime_lookup_function:done");
 
   /* creat an execution environment to execute the WASM functions */
   exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
@@ -323,7 +328,7 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
 
   clock_gettime(CLOCK_REALTIME, &ts);
   log_message("[CONTINUUM]2 0018 libwamr_exec:wasm_runtime_create_exec_env:done id=", "a", ts);
-  printf("libwamr_exec:wasm_runtime_create_exec_env:done");
+  // printf("libwamr_exec:wasm_runtime_create_exec_env:done");
 
   // uint32_t num_args = 1, num_results = 1;
   // wasm_val_t results[1];
@@ -342,13 +347,13 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
       // printf("fib function return: %d\n", result);
       clock_gettime(CLOCK_REALTIME, &ts);
       log_message("[CONTINUUM]2 0019 libwamr_exec:wasm_runtime_call_wasm:done id=", result, ts);
-      printf("libwamr_exec:wasm_runtime_call_wasm:done");
+      // printf("libwamr_exec:wasm_runtime_call_wasm:done");
   }
   else {
       /* exception is thrown if call fails */
       clock_gettime(CLOCK_REALTIME, &ts);
       log_message("[CONTINUUM]2 0019 libwamr_exec:wasm_runtime_call_wasm:error id=", wasm_runtime_get_exception(module_inst), ts);
-      printf("libwamr_exec:wasm_runtime_call_wasm:error");
+      // printf("libwamr_exec:wasm_runtime_call_wasm:error");
   }
 
   wasm_runtime_destroy_exec_env(exec_env);
