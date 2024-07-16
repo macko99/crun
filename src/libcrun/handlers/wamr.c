@@ -56,15 +56,6 @@ libwamr_load (void **cookie, libcrun_error_t *err)
   return 0;
 }
 
-int
-my_vprintf(const char *format, va_list ap)
-{
-    /* Print in blue */
-    char buf[200];
-    snprintf(buf, 200, format);
-    return vprintf(buf, ap);
-}
-
 static int
 libwamr_unload (void *cookie, libcrun_error_t *err)
 {
@@ -113,7 +104,6 @@ char *read_wasm_binary_to_buffer(const char *pathname, uint32_t *size) {
         fclose(file);
         return NULL;
     }
-
     // Close the file
     fclose(file);
 
@@ -147,6 +137,7 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
   void (*wasm_runtime_destroy) ();
   uint32_t (*wasm_runtime_get_wasi_exit_code)(wasm_module_inst_t module_inst);
   bool (*wasm_application_execute_main)(wasm_module_inst_t module_inst, int32_t argc, char *argv[]);
+  void (*wasm_runtime_set_wasi_args) (wasm_module_t module, const char *dir_list[], uint32_t dir_count, const char *map_dir_list[], uint32_t map_dir_count, const char *env[], uint32_t env_count, char *argv[], int argc);
 
   wasm_runtime_init = dlsym (cookie, "wasm_runtime_init");
   wasm_runtime_full_init = dlsym (cookie, "wasm_runtime_full_init");
@@ -162,6 +153,7 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
   wasm_runtime_destroy = dlsym (cookie, "wasm_runtime_destroy");
   wasm_runtime_get_wasi_exit_code = dlsym (cookie, "wasm_runtime_get_wasi_exit_code");
   wasm_application_execute_main = dlsym (cookie, "wasm_application_execute_main");
+  wasm_runtime_set_wasi_args = dlsym (cookie, "wasm_runtime_set_wasi_args");
 
   if (wasm_runtime_init == NULL)
     error (EXIT_FAILURE, 0, "could not find wasm_runtime_init symbol in `libiwasm.so`");
@@ -191,76 +183,41 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
     error (EXIT_FAILURE, 0, "could not find wasm_runtime_get_wasi_exit_code symbol in `libiwasm.so`");
   if (wasm_application_execute_main == NULL)
     error (EXIT_FAILURE, 0, "could not find wasm_application_execute_main symbol in `libiwasm.so`");
+  if (wasm_runtime_set_wasi_args == NULL)
+    error (EXIT_FAILURE, 0, "could not find wasm_runtime_set_wasi_args symbol in `libiwasm.so`");
 
-  static char global_heap_buf[256 * 1024];
-  int ret;
   char *buffer, error_buf[128];
   uint32_t size, stack_size = 8096, heap_size = 8096;
 
-  memset(&init_args, 0, sizeof(RuntimeInitArgs));
+  const char *dirs[2] = { "/", "." };
+  char **container_env = container->container_def->process->env;
+  size_t env_count = container->container_def->process->env_len;
+
   /* initialize the wasm runtime by default configurations */
-  // if(!wasm_runtime_init()) {
-  //   clock_gettime(CLOCK_REALTIME, &ts);
-  //   log_message("[CONTINUUM]2 0013 libwamr_exec:wasm_runtime_init:error id=", "error", ts);
-  // }
-
-  init_args.mem_alloc_type = Alloc_With_Allocator;
-  init_args.mem_alloc_option.allocator.malloc_func = malloc;
-  init_args.mem_alloc_option.allocator.realloc_func = realloc;
-  init_args.mem_alloc_option.allocator.free_func = free;
-
-  // init_args.mem_alloc_type = Alloc_With_Pool;
-  // init_args.mem_alloc_option.pool.heap_buf = global_heap_buf;
-  // init_args.mem_alloc_option.pool.heap_size = sizeof(global_heap_buf);
-
-  // /* initialize runtime environment */
-  if (!wasm_runtime_full_init(&init_args)) {
-    //
-  }
+  wasm_runtime_init();
 
   /* read WASM file into a memory buffer */
   buffer = read_wasm_binary_to_buffer(pathname, &size);
 
+  /* add line below if we want to export native functions to WASM app */
+  // wasm_runtime_register_natives(...);
+
   /* parse the WASM file from buffer and create a WASM module */
   module = wasm_runtime_load(buffer, size, error_buf, sizeof(error_buf));
 
-  if (!module) {
-    //
-  }
+  wasm_runtime_set_wasi_args(module, dirs, 1, NULL, 0, container_env, env_count, NULL, 0);
 
   /* create an instance of the WASM module (WASM linear memory is ready) */
-  module_inst = wasm_runtime_instantiate(module, stack_size, heap_size,
-                                         error_buf, sizeof(error_buf));
-
-  if (!module_inst) {
-    //
-  }
+  module_inst = wasm_runtime_instantiate(module, stack_size, heap_size, error_buf, sizeof(error_buf));
 
   /* lookup a WASM function by its name The function signature can NULL here */
-  // func = wasm_runtime_lookup_function(module_inst, "add");
-
-  // if (!func || func == NULL) {
-    //
-  // }
+  func = wasm_runtime_lookup_function(module_inst, "_start");
 
   /* creat an execution environment to execute the WASM functions */
   exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
-  if (!exec_env) {
-    //
-  }
-
-  uint32_t result;
 
   /* call the WASM function */
-  if (wasm_application_execute_main(module_inst, 0, NULL) ) {
-  // if (wasm_runtime_call_wasm(exec_env, func, 0, NULL) ) {
-      /* the return value is stored in argv[0] */
-      result = wasm_runtime_get_wasi_exit_code(module_inst);
-      printf("return: %d\n", result);
-  }
-  else {
-      /* exception is thrown if call fails */
-  }
+  wasm_runtime_call_wasm(exec_env, func, 0, NULL);
 
   wasm_runtime_destroy_exec_env(exec_env);
 
