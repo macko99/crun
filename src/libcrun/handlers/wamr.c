@@ -164,9 +164,9 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
   if (wasm_runtime_instantiate == NULL) 
     error (EXIT_FAILURE, 0, "could not find wasm_runtime_instantiate symbol in `libiwasm.so`");
   if (wasm_runtime_lookup_function == NULL)
-    error (EXIT_FAILURE, 0, "could not find  wasm_runtime_lookup_functionsymbol in `libiwasm.so`");
+    error (EXIT_FAILURE, 0, "could not find wasm_runtime_lookup_function symbol in `libiwasm.so`");
   if (wasm_runtime_create_exec_env == NULL)
-    error (EXIT_FAILURE, 0, "could not find  wasm_runtime_create_exec_env symbol in `libiwasm.so`");
+    error (EXIT_FAILURE, 0, "could not find wasm_runtime_create_exec_env symbol in `libiwasm.so`");
   if (wasm_runtime_call_wasm == NULL)
     error (EXIT_FAILURE, 0, "could not find wasm_runtime_call_wasm symbol in `libiwasm.so`");
   if (wasm_runtime_get_exception == NULL)
@@ -187,44 +187,56 @@ libwamr_exec (void *cookie, __attribute__ ((unused)) libcrun_container_t *contai
     error (EXIT_FAILURE, 0, "could not find wasm_runtime_set_wasi_args symbol in `libiwasm.so`");
 
   char *buffer, error_buf[128];
-  uint32_t size, stack_size = 8096, heap_size = 8096;
+  uint32_t buffer_size, stack_size = 8096, heap_size = 8096;
 
   const char *dirs[2] = { "/", "." };
   char **container_env = container->container_def->process->env;
   size_t env_count = container->container_def->process->env_len;
 
+  int arg_count = 0;
+  char *const *arg;
+  for (arg = argv; *arg != NULL; ++arg)
+    arg_count++;
+
   /* initialize the wasm runtime by default configurations */
-  wasm_runtime_init();
+  if (!wasm_runtime_init())
+    error (EXIT_FAILURE, 0, "Failed to initialize the wasm runtime");
 
   /* read WASM file into a memory buffer */
-  buffer = read_wasm_binary_to_buffer(pathname, &size);
-
-  /* add line below if we want to export native functions to WASM app */
-  // wasm_runtime_register_natives(...);
+  buffer = read_wasm_binary_to_buffer(pathname, &buffer_size);
+  if (!buffer || buffer_size == 0)
+    error (EXIT_FAILURE, 0, "Failed to read file");
 
   /* parse the WASM file from buffer and create a WASM module */
-  module = wasm_runtime_load(buffer, size, error_buf, sizeof(error_buf));
+  module = wasm_runtime_load(buffer, buffer_size, error_buf, sizeof(error_buf));
+  if (!module)
+    error (EXIT_FAILURE, 0, "Failed to load WASM file");
 
-  wasm_runtime_set_wasi_args(module, dirs, 1, NULL, 0, container_env, env_count, NULL, 0);
+  /* instantiate the WASI environment */
+  wasm_runtime_set_wasi_args(module, dirs, 1, NULL, 0, container_env, env_count, (char **) argv, arg_count);
 
   /* create an instance of the WASM module (WASM linear memory is ready) */
   module_inst = wasm_runtime_instantiate(module, stack_size, heap_size, error_buf, sizeof(error_buf));
+  if (!module_inst)
+    error (EXIT_FAILURE, 0, "Failed to instantiate the WASM module");
 
   /* lookup a WASM function by its name The function signature can NULL here */
   func = wasm_runtime_lookup_function(module_inst, "_start");
+  if (!func || func == NULL)
+    error (EXIT_FAILURE, 0, "Failed to lookup the WASM function");
 
   /* creat an execution environment to execute the WASM functions */
   exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
+  if (!exec_env)
+    error (EXIT_FAILURE, 0, "Failed to create the execution environment");
 
   /* call the WASM function */
-  wasm_runtime_call_wasm(exec_env, func, 0, NULL);
+  if (!wasm_runtime_call_wasm(exec_env, func, 0, NULL))
+    error (EXIT_FAILURE, 0, "Failed to call the WASM function");
 
   wasm_runtime_destroy_exec_env(exec_env);
-
   wasm_runtime_deinstantiate(module_inst);
-
   wasm_runtime_unload(module);
-
   wasm_runtime_destroy();
 
   exit (EXIT_SUCCESS);
